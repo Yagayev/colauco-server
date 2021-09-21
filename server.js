@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require("cors");
-const mysql = require("mysql");
+const mysql = require("mysql2/promise");
 
 const env = require('./env');
 
@@ -12,7 +12,49 @@ const PORT = env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-const db = mysql.createConnection(env.CLEARDB_DATABASE_URL);
+async function main(){
+
+    const db = await mysql.createConnection(env.CLEARDB_DATABASE_URL);
+    app.listen(PORT, () => {
+        console.log(`Server is running at port ${PORT}`);
+    });
+        
+    app.get("/duck", (req, res) =>{
+        res.send('QUACK!');
+    });
+
+    app.get("/createAnimal", async (req, res) =>{
+        const {name, sound} = req.query;
+        // console.log(`name:${name}\nsound:${sound}\n`)
+        let [ans] = await db.query(`
+            INSERT INTO animals(
+                name,
+                sound
+            ) VALUES(
+                '${name}',
+                '${sound}'
+            )
+        `);
+
+        res.send(ans);
+    })
+
+    app.get("/greetAnimal", async (req, res) =>{
+        const {name} = req.query;
+        // const db = await mysql.createConnection(env.CLEARDB_DATABASE_URL);
+        let [rows, fields] = await db.query(`
+            SELECT 
+                sound 
+            FROM 
+                animals
+            WHERE name='${name}'
+        `);
+        
+        res.send(rows);
+        db.close()
+    })
+}
+
 
 // const db = mysql.createConnection({
 //   user: "root",
@@ -39,41 +81,23 @@ const db = mysql.createConnection(env.CLEARDB_DATABASE_URL);
 //         console.log(`results:${JSON.stringify(results)}\nerror:${error}\nfields:${fields}\n`)
 //       });
 
-app.get("/duck", (req, res) =>{
-    res.send('QUACK!');
-});
+// app.get("/createAnimal", (req, res) =>{
+//     const {name, sound} = req.query;
+//     // console.log(`name:${name}\nsound:${sound}\n`)
+//     db.query(`
+//         INSERT INTO animals(
+//             name,
+//             sound
+//         ) VALUES(
+//             '${name}',
+//             '${sound}'
+//         )
+//     `, (error, results, fields) => {
+//     console.log(`results:${JSON.stringify(results)}\nerror:${error}\nfields:${fields}\nname:${name}\nsound:${sound}\n`)
+//     res.send(results);
+//     });
+// })
 
-app.get("/createAnimal", (req, res) =>{
-    const {name, sound} = req.query;
-    // console.log(`name:${name}\nsound:${sound}\n`)
-    db.query(`
-        INSERT INTO animals(
-            name,
-            sound
-        ) VALUES(
-            '${name}',
-            '${sound}'
-        )
-    `, (error, results, fields) => {
-    console.log(`results:${JSON.stringify(results)}\nerror:${error}\nfields:${fields}\nname:${name}\nsound:${sound}\n`)
-    res.send(results);
-    });
-})
 
-app.get("/greetAnimal", (req, res) =>{
-    const {name} = req.query;;
-    db.query(`
-        SELECT 
-            sound 
-        FROM 
-            animals
-        WHERE name='${name}'
-    `, (error, results, fields) => {
-    console.log(`results:${JSON.stringify(results)}\nerror:${error}\nfields:${fields}\n`)
-    res.send(results);
-    });
-})
 
-app.listen(PORT, () => {
-    console.log(`Server is running at port ${PORT}`);
-});
+main();
